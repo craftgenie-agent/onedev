@@ -240,6 +240,14 @@ ensure_webhook() {
 		skipped "webhook (CG_WEBHOOK_URL is not set)"
 		return
 	fi
+	# Only reachable in a dry run: ensure_project deliberately returns an empty id for a
+	# project it would have created, and require_id has already stopped a real run without
+	# one. Reading settings first would mean GET /projects//setting and a fatal 404 on
+	# exactly the case the preview exists for - a customer who has never been provisioned.
+	if [ -z "$project_id" ]; then
+		would "webhook -> $url" || die "No project to attach the webhook to"
+		return
+	fi
 	local setting
 	setting=$(api GET "/projects/$project_id/setting")
 	if printf '%s' "$setting" | jq -e --arg u "$url" '(.webHooks // []) | map(select(.postUrl == $u)) | length > 0' >/dev/null; then
