@@ -177,8 +177,21 @@ public class LinkSpecResource {
 	 */
 	private void validate(LinkSpec linkSpec) {
 		refuseViolations("", validator.validate(linkSpec));
-		if (linkSpec.getOpposite() != null)
+		if (linkSpec.getOpposite() != null) {
 			refuseViolations("opposite.", validator.validate(linkSpec.getOpposite()));
+			// The two sides have to be tellable apart by name, and nothing below here enforces it.
+			// LinkDescriptor decides direction with !linkName.equals(spec.getName()), so a spec
+			// naming both sides the same always resolves to the primary side and the opposite side
+			// cannot be addressed by name at all - the link exists and half of it is unreachable.
+			//
+			// The uniqueness check cannot catch this: it excludes the spec being updated on
+			// purpose, so it is blind to a spec colliding with itself. The web editor refuses the
+			// combination outright; only the API let it through.
+			//
+			// Reached with a name that is known non-empty, the constraints above having run first.
+			if (linkSpec.getName().equals(linkSpec.getOpposite().getName()))
+				throw new ExplicitException("Name and name on the other side should be different");
+		}
 	}
 
 	/**

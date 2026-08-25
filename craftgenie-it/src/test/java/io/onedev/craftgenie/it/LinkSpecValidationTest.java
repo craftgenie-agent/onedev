@@ -1,5 +1,6 @@
 package io.onedev.craftgenie.it;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -76,6 +77,35 @@ public class LinkSpecValidationTest {
 		verify(linkSpecService, never()).update(any(), anyString(), anyString());
 		// Refused before the spec is even loaded, so nothing was read on the way to failing.
 		verify(linkSpecService, never()).load(any(Long.class));
+	}
+
+	/**
+	 * One name cannot mean both directions.
+	 *
+	 * <p>{@code LinkDescriptor} decides which way round a link is with
+	 * {@code !linkName.equals(spec.getName())}, so a spec naming both sides the same always
+	 * resolves to the primary side and the opposite side cannot be addressed by name at all. Half
+	 * the link exists and is unreachable.
+	 *
+	 * <p>The uniqueness check is structurally unable to catch this - it excludes the spec being
+	 * updated, so it cannot see one colliding with itself.
+	 */
+	@Test
+	public void createRefusesTheSameNameOnBothSides() {
+		ExplicitException refused = assertThrows(ExplicitException.class,
+				() -> resource.createSpec(spec("Relates to", "Relates to")));
+
+		assertEquals("Name and name on the other side should be different", refused.getMessage());
+		verify(linkSpecService, never()).create(any());
+	}
+
+	@Test
+	public void updateRefusesTheSameNameOnBothSides() {
+		ExplicitException refused = assertThrows(ExplicitException.class,
+				() -> resource.updateSpec(3L, spec("Relates to", "Relates to")));
+
+		assertEquals("Name and name on the other side should be different", refused.getMessage());
+		verify(linkSpecService, never()).update(any(), anyString(), anyString());
 	}
 
 	/** The spec's own constraints still apply; the opposite is an addition, not a replacement. */
