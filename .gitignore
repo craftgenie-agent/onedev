@@ -25,3 +25,7 @@ pom.xml.versionsBackup
 e2e-test/node_modules/
 e2e-test/playwright-report/
 e2e-test/test-results/
+
+# CraftGenie local development (cg-dev.sh)
+craftgenie-dev/.env
+craftgenie-dev/.runtime/

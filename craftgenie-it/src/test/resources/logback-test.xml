@@ -1,0 +1,12 @@
+<configuration>
+	<appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder><pattern>%d{HH:mm:ss} %-5level %logger{20} - %msg%n</pattern></encoder>
+	</appender>
+	<!-- Hibernate logs every generated DDL statement at DEBUG, which buries the test output. -->
+	<logger name="org.hibernate" level="WARN"/>
+	<logger name="com.zaxxer.hikari" level="WARN"/>
+	<logger name="org.testcontainers" level="INFO"/>
+	<logger name="tc" level="WARN"/>
+	<logger name="com.github.dockerjava" level="WARN"/>
+	<root level="INFO"><appender-ref ref="console"/></root>
+</configuration>

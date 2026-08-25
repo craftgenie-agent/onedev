@@ -99,6 +99,7 @@
 				<module>server-core</module>
 				<module>server-plugin</module>
 				<module>server-product</module>
+				<module>craftgenie-it</module>
 			</modules>
 		</profile>
 		<profile>
@@ -111,6 +112,7 @@
 				<module>server-plugin</module>
 				<module>server-ee</module>
 				<module>server-product</module>
+				<module>craftgenie-it</module>
 			</modules>
 		</profile>
 	</profiles>

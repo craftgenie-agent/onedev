@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>craftgenie-it</artifactId>
+	<parent>
+		<groupId>io.onedev</groupId>
+		<artifactId>server</artifactId>
+		<version>16.5.6</version>
+	</parent>
+
+	<!--
+		CraftGenie integration tests.
+
+		OneDev's own tests are pure unit tests and its dev sandbox runs HSQLDB, while
+		production runs PostgreSQL. Two differences make that gap dangerous rather than
+		merely untidy:
+
+		  * HSQLDB is configured with sql.ignore_case=true, so string comparison is
+		    case-insensitive. PostgreSQL is case-sensitive.
+		  * PostgreSQL runs through a custom dialect that remaps BLOB to bytea.
+
+		These tests boot a real PostgreSQL through Testcontainers and exercise OneDev's
+		actual entity model, naming strategy and dialect against it.
+
+		Test-scope only - this module produces no artifact anyone depends on. Tests skip
+		themselves cleanly when Docker is unavailable, so a machine without it is not a
+		build failure.
+	-->
+
+	<properties>
+		<testcontainers.version>1.21.4</testcontainers.version>
+		<postgresql.driver.version>42.7.12</postgresql.driver.version>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>io.onedev</groupId>
+			<artifactId>server-core</artifactId>
+			<version>${project.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>${testcontainers.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<!-- Only to prove, in DialectDivergenceTest, how HSQLDB differs from PostgreSQL. -->
+			<groupId>org.hsqldb</groupId>
+			<artifactId>hsqldb</artifactId>
+			<version>2.7.1</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<version>${postgresql.driver.version}</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>
