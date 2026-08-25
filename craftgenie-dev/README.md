@@ -72,10 +72,19 @@ if something on your machine already holds them — the defaults avoid the usual
 
 ## Security
 
-The credentials in `.env.example` are local-development values for a database bound to
-localhost. pgAdmin runs in desktop mode (`SERVER_MODE=False`, no master password) because a
-sign-in wall on a developer's own machine buys nothing. **Do not carry any of this to a
-shared or reachable deployment.**
+Every published port binds to `127.0.0.1`. That is what makes the rest of this defensible:
+pgAdmin runs in desktop mode (`SERVER_MODE=False`, no master password) because a sign-in
+wall on a developer's own machine buys nothing — but only while nothing else can reach it.
+Compose publishes to `0.0.0.0` when the prefix is left off, so this is one easy edit away
+from an open administrative console on the database.
+
+A host firewall is not the backstop it appears to be. Docker publishes a port by writing
+rules into the `DOCKER` iptables chain, which is consulted *before* the `INPUT` chain most
+firewall tooling manages, so an unprefixed port is commonly reachable on a machine whose
+firewall reads as closed. `ComposeExposureTest` fails the build if a port loses its prefix.
+
+The credentials in `.env.example` are local-development values. **Do not carry any of this
+to a shared or reachable deployment.**
 
 ## Integration tests
 
