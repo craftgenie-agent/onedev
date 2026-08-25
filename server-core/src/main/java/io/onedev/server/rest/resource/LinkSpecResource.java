@@ -6,6 +6,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.NotAcceptableException;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -86,11 +87,11 @@ public class LinkSpecResource {
 			throw new UnauthorizedException();
 
 		if (linkSpecService.find(linkSpec.getName()) != null)
-			throw new javax.ws.rs.NotAcceptableException(
+			throw new NotAcceptableException(
 					"Link spec name is already used: " + linkSpec.getName());
 		if (linkSpec.getOpposite() != null
 				&& linkSpecService.find(linkSpec.getOpposite().getName()) != null) {
-			throw new javax.ws.rs.NotAcceptableException(
+			throw new NotAcceptableException(
 					"Link spec name is already used: " + linkSpec.getOpposite().getName());
 		}
 
@@ -116,6 +117,18 @@ public class LinkSpecResource {
 		if (!SecurityUtils.isAdministrator())
 			throw new UnauthorizedException();
 
+		// Creation refuses a name another spec already holds, and so does the UI. Update has
+		// to as well, and it is the one that gets away with it: only the primary name carries
+		// a unique column, while an opposite name lives inside a @Lob, so nothing below this
+		// method would object. DefaultLinkSpecService.updateCache indexes both sides of every
+		// spec in one name-to-id map, so two specs claiming one name means the last write
+		// wins the lookup and saved queries and links naming it resolve to the wrong spec.
+		//
+		// Checked before anything is read or written, so a refused update changes nothing.
+		refuseNameHeldByAnotherSpec(linkSpec.getName(), linkSpecId);
+		if (linkSpec.getOpposite() != null)
+			refuseNameHeldByAnotherSpec(linkSpec.getOpposite().getName(), linkSpecId);
+
 		// The old names have to be read before the incoming state is applied: update()
 		// uses them to migrate references and to refuse a rename that would orphan a
 		// query still using the old name.
@@ -138,6 +151,19 @@ public class LinkSpecResource {
 		auditService.audit(null, "changed issue link \"" + oldName + "\" via RESTful API",
 				oldAuditContent, newAuditContent);
 		return Response.ok().build();
+	}
+
+	/**
+	 * Refuse a name that belongs to some other spec.
+	 *
+	 * <p>find() matches either end of an asymmetric spec, which is how a collision with an
+	 * opposite name arrives. A spec holding the name itself is not a collision - keeping
+	 * your own name while changing anything else is the ordinary edit.
+	 */
+	private void refuseNameHeldByAnotherSpec(String name, Long selfId) {
+		LinkSpec holder = linkSpecService.find(name);
+		if (holder != null && !holder.getId().equals(selfId))
+			throw new NotAcceptableException("Link spec name is already used: " + name);
 	}
 
 	@Api(order=600)
