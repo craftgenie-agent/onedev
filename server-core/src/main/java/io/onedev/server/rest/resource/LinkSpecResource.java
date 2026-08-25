@@ -2,8 +2,12 @@ package io.onedev.server.rest.resource;
 
 import java.util.List;
 
+import java.util.Set;
+
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validator;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.NotAcceptableException;
@@ -20,6 +24,7 @@ import javax.ws.rs.core.Response;
 import org.apache.shiro.authz.UnauthenticatedException;
 import org.apache.shiro.authz.UnauthorizedException;
 
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.data.migration.VersionedXmlDoc;
 import io.onedev.server.model.LinkSpec;
 import io.onedev.server.rest.annotation.Api;
@@ -48,10 +53,14 @@ public class LinkSpecResource {
 
 	private final AuditService auditService;
 
+	private final Validator validator;
+
 	@Inject
-	public LinkSpecResource(LinkSpecService linkSpecService, AuditService auditService) {
+	public LinkSpecResource(LinkSpecService linkSpecService, AuditService auditService,
+			Validator validator) {
 		this.linkSpecService = linkSpecService;
 		this.auditService = auditService;
+		this.validator = validator;
 	}
 
 	@Api(order=100)
@@ -85,6 +94,8 @@ public class LinkSpecResource {
 	public Long createSpec(@NotNull LinkSpec linkSpec) {
 		if (!SecurityUtils.isAdministrator())
 			throw new UnauthorizedException();
+
+		validate(linkSpec);
 
 		if (linkSpecService.find(linkSpec.getName()) != null)
 			throw new NotAcceptableException(
@@ -125,6 +136,8 @@ public class LinkSpecResource {
 		// wins the lookup and saved queries and links naming it resolve to the wrong spec.
 		//
 		// Checked before anything is read or written, so a refused update changes nothing.
+		validate(linkSpec);
+
 		refuseNameHeldByAnotherSpec(linkSpec.getName(), linkSpecId);
 		if (linkSpec.getOpposite() != null)
 			refuseNameHeldByAnotherSpec(linkSpec.getOpposite().getName(), linkSpecId);
@@ -151,6 +164,34 @@ public class LinkSpecResource {
 		auditService.audit(null, "changed issue link \"" + oldName + "\" via RESTful API",
 				oldAuditContent, newAuditContent);
 		return Response.ok().build();
+	}
+
+	/**
+	 * Check the submitted spec, and its opposite by hand.
+	 *
+	 * <p>The opposite has to be asked about separately because LinkSpec.getOpposite() carries no
+	 * @Valid: cascaded validation stops at the spec itself, so the opposite's own @NotEmpty name
+	 * and @IssueQuery are never looked at. Nothing downstream looks either - it is serialized
+	 * whole into a @Lob - so an empty name on the other side, or an unparseable query, was simply
+	 * stored, and only surfaced later wherever something tried to read it back.
+	 */
+	private void validate(LinkSpec linkSpec) {
+		refuseViolations("", validator.validate(linkSpec));
+		if (linkSpec.getOpposite() != null)
+			refuseViolations("opposite.", validator.validate(linkSpec.getOpposite()));
+	}
+
+	/**
+	 * The prefix restores what validating the nested object separately loses: a violation
+	 * reported against it says "name", and the caller sent two of those.
+	 */
+	private static void refuseViolations(String prefix,
+			Set<? extends ConstraintViolation<?>> violations) {
+		if (!violations.isEmpty()) {
+			var violation = violations.iterator().next();
+			throw new ExplicitException(prefix + violation.getPropertyPath() + ": "
+					+ violation.getMessage());
+		}
 	}
 
 	/**

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import javax.validation.Validator;
 import javax.ws.rs.NotAcceptableException;
 
 import com.google.inject.Injector;
@@ -54,7 +55,10 @@ public class LinkSpecUniquenessTest {
 	@Before
 	public void setUp() {
 		linkSpecService = mock(LinkSpecService.class);
-		resource = new LinkSpecResource(linkSpecService, mock(AuditService.class));
+		// A mocked Validator answers every check with an empty set, which keeps these tests
+		// about uniqueness. Constraint checking has its own test.
+		resource = new LinkSpecResource(linkSpecService, mock(AuditService.class),
+				mock(Validator.class));
 		security = mockStatic(SecurityUtils.class);
 		security.when(SecurityUtils::isAdministrator).thenReturn(true);
 
