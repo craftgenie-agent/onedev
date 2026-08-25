@@ -105,6 +105,19 @@ entity model against it:
   HSQLDB; ordering differs under the C collation. Documentation with a build failure
   attached.
 
+- **`ComposeExposureTest`** fails the build if a published port in the compose file
+  loses its `127.0.0.1:` prefix.
+- **`LocalSourceTest`** checks these tests are running against *this* server-core.
+
+That last one guards something quiet. `server-core` is a test-scoped sibling, but
+selecting only `craftgenie-it` still resolves it — OneDev publishes it to its own Maven
+repository, which the parent pom declares. Run the tests without building it first and
+they go green having exercised **upstream's** jar, so a local change to an entity, the
+dialect or the naming strategy is not covered by the tests written to cover it. Nothing
+fails; the coverage is simply imaginary. `./cg-dev.sh test` builds it into the reactor
+first, which is why it uses two Maven invocations rather than `-am` — `-am` would also
+run `server-core`'s 79 tests, two of which fail upstream on a current JDK.
+
 Tests skip themselves cleanly when Docker is unavailable, so they are safe in the
 default `mvn test`.
 

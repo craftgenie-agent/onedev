@@ -241,8 +241,22 @@ cmd_run() {
 cmd_test() {
 	require_docker
 	info "Running CraftGenie integration tests (PostgreSQL via Testcontainers)"
+	cd "$ROOT" || die "could not enter $ROOT"
+	# server-core has to be built from source first, and not for the reason it looks like.
+	# Selecting craftgenie-it alone still resolves server-core - OneDev publishes it to its
+	# own Maven repository, which the parent pom declares - so the build goes green having
+	# tested UPSTREAM's jar instead of this working tree, and a change to an entity or the
+	# dialect is not covered by the tests written to cover it. LocalSourceTest fails if this
+	# step is skipped.
+	#
+	# Built with its own tests skipped rather than by adding -am below: -am would also run
+	# server-core's 79 tests on every invocation, two of which fail upstream on a current JDK
+	# (Mockito cannot mock GpgSetting or SystemSetting) and would block the tests this
+	# command exists to run.
+	mvn -Pce -pl craftgenie-it -am -DskipTests install \
+		|| die "could not build craftgenie-it's dependencies"
 	# Its own throwaway container, so it neither needs nor disturbs the dev database.
-	cd "$ROOT" && exec mvn -Pce -pl craftgenie-it test "$@"
+	exec mvn -Pce -pl craftgenie-it test "$@"
 }
 
 cmd_psql() {
