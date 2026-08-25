@@ -70,6 +70,21 @@ CG_CUSTOMER="${CG_CUSTOMER_OVERRIDE:-$CG_CUSTOMER}"
 [ -n "${ONEDEV_INITIAL_PASSWORD:-}" ] \
 	|| die "ONEDEV_INITIAL_PASSWORD is not set in $ENV_FILE"
 
+# Checked here rather than where the webhook is created, so a misconfiguration costs nothing:
+# ensure_webhook runs last, and failing there would leave every project and query already made.
+#
+# Refused rather than sent empty or left out. Empty fails validation - WebHook.getSecret is
+# @NotEmpty and ProjectSetting.getWebHooks is @Valid, so the whole settings POST is rejected with
+# "webHooks[0].secret: must not be empty". Leaving the property out succeeds, but OneDev then
+# generates a secret of its own, and a secret only OneDev knows is worse than no webhook: events
+# arrive signed with something the receiver cannot check, so the signature stops meaning anything
+# while still looking like a control that is switched on.
+if [ -n "${CG_WEBHOOK_URL:-}" ] && [ -z "${CG_WEBHOOK_SECRET:-}" ]; then
+	die "CG_WEBHOOK_SECRET is required when CG_WEBHOOK_URL is set - the receiver needs it to \
+verify the X-OneDev-Signature header. Set both in $ENV_FILE, or clear CG_WEBHOOK_URL to skip \
+webhook provisioning."
+fi
+
 API="$ONEDEV_SERVER_URL/~api"
 AUTH="$ONEDEV_INITIAL_USER:$ONEDEV_INITIAL_PASSWORD"
 
