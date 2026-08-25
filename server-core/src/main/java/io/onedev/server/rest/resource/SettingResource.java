@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import javax.validation.Valid;
+import javax.validation.Validator;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -40,6 +41,7 @@ import io.onedev.server.model.support.administration.authenticator.Authenticator
 import io.onedev.server.model.support.administration.emailtemplates.EmailTemplates;
 import io.onedev.server.model.support.administration.jobexecutor.JobExecutor;
 import io.onedev.server.model.support.administration.mailservice.MailConnector;
+import io.onedev.commons.utils.ExplicitException;
 import io.onedev.server.rest.annotation.Api;
 import io.onedev.server.security.SecurityUtils;
 import io.onedev.server.web.page.layout.ContributedAdministrationSetting;
@@ -53,11 +55,15 @@ public class SettingResource {
 	private final SettingService settingService;
 
 	private final AuditService auditService;
-	
+
+	private final Validator validator;
+
 	@Inject
-	public SettingResource(SettingService settingService, AuditService auditService) {
+	public SettingResource(SettingService settingService, AuditService auditService,
+			Validator validator) {
 		this.settingService = settingService;
 		this.auditService = auditService;
+		this.validator = validator;
 	}
 
 	@Api(order=100)
@@ -276,9 +282,21 @@ public class SettingResource {
 	@Api(order=2000)
 	@Path("/issue")
 	@POST
-    public Response setIssueSetting(@NotNull @Valid GlobalIssueSetting issueSetting) {
+    public Response setIssueSetting(@NotNull GlobalIssueSetting issueSetting) {
     	if (!SecurityUtils.isAdministrator()) 
 			throw new UnauthorizedException();
+
+		// editColumns is a transient, UI-only mirror of columns, validated with @Size(min=2).
+		// A caller sending back what GET returned has no way to populate it, so parameter-level
+		// @Valid - which runs before this method - rejected every round trip. Derive it first,
+		// then validate by hand, exactly as ProjectResource.updateSetting does.
+		for (var boardSpec: issueSetting.getBoardSpecs())
+			boardSpec.populateEditColumns();
+		var violations = validator.validate(issueSetting);
+		if (!violations.isEmpty()) {
+			var violation = violations.iterator().next();
+			throw new ExplicitException(violation.getPropertyPath() + ": " + violation.getMessage());
+		}
 		var oldAuditContent = VersionedXmlDoc.fromBean(settingService.getIssueSetting()).toXML();
     	issueSetting.setReconciled(false);
     	settingService.saveIssueSetting(issueSetting);

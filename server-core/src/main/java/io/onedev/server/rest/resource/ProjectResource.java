@@ -376,8 +376,14 @@ public class ProjectResource {
 	@Path("/{projectId}/setting")
     @POST
     public Response updateSetting(@PathParam("projectId") Long projectId, @NotNull ProjectSetting setting) {
-		for (var boardSpec: setting.getIssueSetting().getBoardSpecs())
-			boardSpec.populateEditColumns();
+		// getBoardSpecs() is @Nullable - null means "inherit boards from the parent
+		// project", which is what GET returns for any project that has not overridden
+		// them. Iterating it unguarded made a GET/POST round trip of a project's own
+		// settings fail with a 500.
+		if (setting.getIssueSetting().getBoardSpecs() != null) {
+			for (var boardSpec: setting.getIssueSetting().getBoardSpecs())
+				boardSpec.populateEditColumns();
+		}
 		var violations = validator.validate(setting);
 		if (!violations.isEmpty()) {
 			var violation = violations.iterator().next();
